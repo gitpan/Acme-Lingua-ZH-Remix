@@ -21,9 +21,8 @@ no_index:
     - t
 requires:
   List::MoreUtils: 0
-  Memoize: 0
   common::sense: 3
 resources:
   license: http://opensource.org/licenses/mit-license.php
   repository: http://github.com/gugod/Acme-Lingua-ZH-Remix.git
-version: 0.10
+version: 0.11
