@@ -2,7 +2,7 @@ package Acme::Lingua::ZH::Remix;
 use common::sense;
 use List::MoreUtils qw(uniq);
 
-our $VERSION = "0.13";
+our $VERSION = "0.14";
 
 sub import {
     my $pkg = (caller)[0];
@@ -25,18 +25,18 @@ sub init_phrase {
     $corpus =~ s/(\s|　)*//gs;
 
     # Ignore certain punctuations
-    $corpus =~ s/——//gs;
+    $corpus =~ s/(——|──)//gs;
 
     my @x = split /(?:（(.+?)）|：?「(.+?)」|〔(.+?)〕|“(.+?)”)/, $corpus;
     @phrase_db =
         uniq sort
         map {
-            s/^(，|。|？|\s)+//;
+            s/^(，|。|？|！|\s)+//;
             $_;
         } grep /\S/, map {
             @_ = ();
             # s/(.+?(?:，|。|？)+)//gsm;
-            my @x = split /(，|。|？)/;
+            my @x = split /(，|。|？|！)/;
             while(@x) {
                 my $s = shift @x;
                 my $p = shift @x;
@@ -66,6 +66,11 @@ sub phrase_ratio {
     return @{$phrase{$type}} / @phrase_db
 }
 
+sub random(@_) {
+    my $n = $#_;
+    return $_[ int(rand($n)) ];
+}
+
 sub rand_phrase {
     my $type = shift;
     $phrase{ $type }[int rand @{$phrase{ $type }}];
@@ -78,20 +83,12 @@ sub rand_sentence {
     }
 
     my $str = "";
-
     while($str eq "") {
-        for ('」',  '，' ,'，' , '）', '，') {
-            $str .= rand_phrase($_) if rand() < phrase_ratio($_);
-        }
+        my $x = random('，', '」', '）', '/');
+        $str .= rand_phrase($x) while rand() < phrase_ratio($x);
     }
 
-    my $ending;
-    if (rand > 0.5) {
-        $ending = rand_phrase("。")
-    }
-    else {
-        $ending = rand_phrase("？");
-    }
+    my $ending = rand_phrase(random(qw/。 ！ ？/));
 
     unless($ending) {
         $str =~ s/，$//;
@@ -159,6 +156,10 @@ See L<http://www.perl.com/perl/misc/Artistic.html>
 # http://zh.wikisource.org/zh-hant/%E5%BF%98%E4%B8%8D%E4%BA%86%E7%9A%84%E9%81%8E%E5%B9%B4
 
 __DATA__
+#c9s
+
+還不賴，還不賴。還不賴！還不賴？
+
 # 前進
 
 在一個晚上，是黑暗的晚上，暗黑的氣氛，濃濃密密把空間充塞著，不讓星星的光明，漏射到地上。那黑暗雖在幾百層的地底，也是經驗不到，是未曾有過駭人的黑暗。
