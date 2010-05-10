@@ -1,23 +1,98 @@
 package Acme::Lingua::ZH::Remix;
-use common::sense;
+our $VERSION = "0.90";
+
+=pod
+
+=encoding utf8
+
+=head1 NAME
+
+Acme::Lingua::ZH::Remix - The Chinese sentence generator.
+
+=head1 SYNOPSIS
+
+    use Acme::Lingua::ZH::Remix;
+
+    my $x = Acme::Lingua::ZH::Remix->new;
+
+    # Generate a random sentance
+    say $x->random_sentence;
+
+=head1 DESCRIPTION
+
+Because lipsum is not funny enough, that is the reason to write this
+module.
+
+This module is a L<Moose> based OO module. You create an instance of
+it with C<new> method, and then invoke methods on the returned object.
+
+The C<random_sentence> method returns a string of one sentence
+of Chinese like:
+
+    真是完全失敗，孩子！怎麼不動了呢？
+
+It uses the corpus data from Project Gutenberg by default. All
+generate sentences are remixes of the corpus.
+
+You can feed you own corpus data to the `feed` method:
+
+    my $x = Acme::Lingua::ZH::Remix->new;
+    $x->feed($my_corpus);
+
+    # Say something based on $my_corpus
+    say $x->random_santence;
+
+The corpus should use full-width punctuation characters.
+
+=cut
+
+use utf8;
+use Moose;
 use List::MoreUtils qw(uniq);
+use Hash::Merge qw(merge);
 
-our $VERSION = "0.14";
+has phrases      => (is => "rw", isa => "HashRef", lazy_build => 1);
+has phrase_count => (is => "rw", isa => "Int",     lazy_build => 1);
 
-sub import {
-    my $pkg = (caller)[0];
-    {
-        no strict 'refs';
-        *{$pkg . '::rand_sentence'} = \&rand_sentence
-            if not defined &{$pkg . '::rand_sentence'};
+sub _build_phrases {
+    my $self   = shift;
+    local $/   = undef;
+    my $corpus = <DATA>;
+    my %phrase;
+    my @phrases = $self->split_corpus($corpus);
+    for (@phrases) {
+        my $p = substr($_, -1);
+        push @{$phrase{$p} ||=[]}, \$_;
     }
+    return \%phrase;
 }
 
-my @phrase_db;
-my %phrase;
+sub _build_phrase_count {
+    my $self = shift;
+    my %p = %{$self->phrases};
+    my $count = 0;
+    for(keys %p) {
+        $count += scalar @{$p{$_}};
+    }
+    return $count;
+}
 
-sub init_phrase {
-    my $corpus = shift;
+sub random(@) { $_[ rand @_ ] }
+
+=head1 METHODS
+
+=head2 split_corpus($corpus_text)
+
+Takes a scalar, returns an list.
+
+This is an utility method that does not change the internal state of
+the topic object.
+
+=cut
+
+sub split_corpus {
+    my ($self, $corpus) = @_;
+    return () unless $corpus;
 
     $corpus =~ s/^\#.*$//gm;
 
@@ -27,68 +102,85 @@ sub init_phrase {
     # Ignore certain punctuations
     $corpus =~ s/(——|──)//gs;
 
-    my @x = split /(?:（(.+?)）|：?「(.+?)」|〔(.+?)〕|“(.+?)”)/, $corpus;
-    @phrase_db =
-        uniq sort
+    my @xc = split /(?:（(.+?)）|：?「(.+?)」|〔(.+?)〕|“(.+?)”)/, $corpus;
+    my @phrases = uniq sort grep /.(，|。|？|！)$/,
         map {
-            s/^(，|。|？|！|\s)+//;
-            $_;
-        } grep /\S/, map {
-            @_ = ();
-            # s/(.+?(?:，|。|？)+)//gsm;
-            my @x = split /(，|。|？|！)/;
-            while(@x) {
+            my @x = split /(，|。|？|！)/, $_;
+            my @r = ();
+            while (@x) {
                 my $s = shift @x;
-                my $p = shift @x;
+                my $p = shift @x or next;
 
-                push @_, "$s$p";
+                $s =~ s/^(，|。|？|！|\s)+//;
+                push @r, "$s$p";
             }
-
-            @_;
-        } grep /\S/, map {
+            @r;
+        } map {
             s/^\s+//;
             s/\s+$//;
             s/^(.+?) //;
             $_;
-        } @x;
+        } grep { $_ } @xc;
 
-    %phrase = {};
+    return @phrases;
+}
 
-    for (@phrase_db) {
-        # say $_;
+=head2 feed($corpus_text)
+
+Instance method. Takes a scalar, return the topic object.
+
+Merge C<$corpus_text> into the internal phrases corpus of the object.
+
+=cut
+
+sub feed {
+    my $self   = shift;
+    my $corpus = shift;
+
+    my %phrase;
+    my @phrases = $self->split_corpus($corpus);
+
+    for (@phrases) {
         my $p = substr($_, -1);
-        push @{$phrase{$p} ||=[]}, $_;
+        push @{$phrase{$p} ||=[]}, \$_;
     }
+
+    $self->phrases(merge($self->phrases, \%phrase));
+    $self->clear_phrase_count;
+
+    return $self;
 }
 
 sub phrase_ratio {
+    my $self = shift;
     my $type = shift;
-    return @{$phrase{$type}} / @phrase_db
+    return @{$self->phrases->{$type}||=[]} / $self->phrase_count;
 }
 
-sub random(@_) {
-    my $n = $#_;
-    return $_[ int(rand($n)) ];
-}
-
-sub rand_phrase {
+sub random_phrase {
+    my $self = shift;
     my $type = shift;
-    $phrase{ $type }[int rand @{$phrase{ $type }}];
+    return ${ random(@{ $self->phrases->{$type}||=[] }) };
 }
 
-sub rand_sentence {
-    unless (%phrase) {
-        local $/ = undef;
-        init_phrase(<DATA>);
-    }
+=head2 random_sentence
+
+Instance method. Takes no arguments, returns a scalar.
+
+The returned scalar is the generate sentence.
+
+=cut
+
+sub random_sentence {
+    my $self = shift;
 
     my $str = "";
     while($str eq "") {
         my $x = random('，', '」', '）', '/');
-        $str .= rand_phrase($x) while rand() < phrase_ratio($x);
+        $str .= $self->random_phrase($x) while rand() < $self->phrase_ratio($x);
     }
 
-    my $ending = rand_phrase(random(qw/。 ！ ？/));
+    my $ending = $self->random_phrase(random(qw/。 ！ ？/));
 
     unless($ending) {
         $str =~ s/，$//;
@@ -108,38 +200,6 @@ sub rand_sentence {
 }
 
 1;
-
-=head1 NAME
-
-Acme::Lingua::ZH::Remix - The Chinese sentence generator.
-
-=head1 SYNOPSIS
-
-    use Acme::Lingua::ZH::Remix;
-
-    rand_sentence;
-
-=head1 DESCRIPTION
-
-The exported function C<rand_sentence> returns a string of one sentence
-of Chinese like:
-
-    真是完全失敗，孩子！怎麼不動了呢？
-
-It uses the corpus data from Project Gutenberg by default. All
-generate sentences are remixes of the corpus.
-
-You can feed you own corpus data with `init_phrase` function:
-
-    Acme::Lingua::ZH::Remix::init_phrase($my_corpus);
-    say rand_santence; # based on $my_corpus
-
-This will effectively clear the default corpus, and any other corpus
-fed into it before. The corpus should use full-width punction
-characters.
-
-Warning: The C<rand_sentence> function has non-zero chance entering an
-infinte loop.
 
 =head1 COPYRIGHT
 
