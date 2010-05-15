@@ -1,5 +1,5 @@
 package Acme::Lingua::ZH::Remix;
-our $VERSION = "0.90";
+our $VERSION = "0.91";
 
 =pod
 
@@ -47,7 +47,7 @@ The corpus should use full-width punctuation characters.
 =cut
 
 use utf8;
-use Moose;
+use Any::Moose;
 use List::MoreUtils qw(uniq);
 use Hash::Merge qw(merge);
 
@@ -146,7 +146,7 @@ sub feed {
     }
 
     $self->phrases(merge($self->phrases, \%phrase));
-    $self->clear_phrase_count;
+    $self->phrase_count( $self->_build_phrase_count );
 
     return $self;
 }
@@ -154,7 +154,10 @@ sub feed {
 sub phrase_ratio {
     my $self = shift;
     my $type = shift;
-    return @{$self->phrases->{$type}||=[]} / $self->phrase_count;
+    my $phrases = $self->phrases->{$type}||=[];
+    my $count   = $self->phrase_count;
+    return 0 if $count == 0;
+    return @{$phrases} / $count;
 }
 
 sub random_phrase {
