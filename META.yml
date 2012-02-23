@@ -28,4 +28,4 @@ requires:
 resources:
   license: http://opensource.org/licenses/mit-license.php
   repository: http://github.com/gugod/Acme-Lingua-ZH-Remix.git
-version: 0.93
+version: 0.94
