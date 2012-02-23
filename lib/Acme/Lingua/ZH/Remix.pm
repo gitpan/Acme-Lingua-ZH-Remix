@@ -1,6 +1,6 @@
 package Acme::Lingua::ZH::Remix;
 use v5.10;
-our $VERSION = "0.92";
+our $VERSION = "0.93";
 
 =pod
 
@@ -164,7 +164,7 @@ sub phrase_ratio {
 sub random_phrase {
     my $self = shift;
     my $type = shift;
-    return ${ random(@{ $self->phrases->{$type}||=[] }) };
+    return ${ random(@{ $self->phrases->{$type}||=[] }) || \'' };
 }
 
 =head2 random_sentence( min => $min, max => $max )
@@ -200,13 +200,12 @@ sub random_sentence {
     my $str = "";
     my @phrases;
 
-    my $ending = $self->random_phrase(random(qw/。 ！ ？/));
+    my $ending = $self->random_phrase(random(qw/。 ！ ？/)) || "…";
     unshift @phrases, $ending;
 
     my $l = length($ending);
-
     my $x = random('，', '」', '）', '/');
-    while (rand() < $self->phrase_ratio($x) && $l > ($options{min}||0)) {
+    while (rand() < $self->phrase_ratio($x) || $l < ( $options{min} || 0 ) ) {
         my $p = $self->random_phrase($x);
         if ($options{max}) {
             if ($l + length($p) > $options{max}) {
@@ -215,15 +214,13 @@ sub random_sentence {
         }
 
         $x = random('，', '」', '）', '/');
-        push @phrases, $p;
+        unshift @phrases, $p;
         $l += length($p);
     }
 
     $str = join "", @phrases;
     $str =~ s/，$//;
     $str =~ s/^「(.+)」$/$1/;
-
-    $str .= $ending;
 
     if (rand > 0.5) {
         $str =~ s/(，)……/$1/gs;
