@@ -1,7 +1,7 @@
 ---
 abstract: 'The Chinese sentence generator.'
 author:
-  - 'Kang-min Liu, <gugod@gugod.org>'
+  - ',2011,2012 by Kang-min Liu, <gugod@gugod.org>'
 build_requires:
   ExtUtils::MakeMaker: 6.62
   Test::More: 0.88
@@ -28,4 +28,4 @@ requires:
 resources:
   license: http://opensource.org/licenses/mit-license.php
   repository: http://github.com/gugod/Acme-Lingua-ZH-Remix.git
-version: 0.95
+version: 0.96
